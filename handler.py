@@ -137,5 +137,8 @@ def generate(job: dict[str, Any]) -> dict[str, Any]:
             "file_name": "ctec-voz-neural.mp3",
             "sample_rate": model.sr,
         }
+        
 
-runpod.serverless.start({"handler": generate})
+if __name__ == "__main__":
+    print("[CTEC] Iniciando worker RunPod Serverless...")
+    runpod.serverless.start({"handler": generate})

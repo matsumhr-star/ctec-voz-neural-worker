@@ -14,9 +14,9 @@ RUN apt-get update \
 WORKDIR /app
 COPY requirements.txt .
 
-# pkuseg 0.0.25 importa NumPy durante a montagem da wheel, mas não declara
-# NumPy corretamente no ambiente isolado de build. Por isso instalamos a base
-# primeiro e montamos o pkuseg sem isolamento antes das demais dependências.
+# O pkuseg 0.0.25 foi publicado antes do Python 3.11 e referencia
+# longintrepr.h pelo caminho antigo. Baixamos o código-fonte, ajustamos
+# o include para Python 3.11 e instalamos o pacote localmente.
 RUN python -m pip install --upgrade \
         "pip==25.1.1" \
         "setuptools==75.8.0" \
@@ -24,10 +24,16 @@ RUN python -m pip install --upgrade \
     && python -m pip install \
         "numpy==1.25.2" \
         "Cython<3" \
-    && python -m pip install --no-build-isolation \
-        "pkuseg==0.0.25" \
-    && python -m pip install -r requirements.txt
+    && mkdir -p /tmp/pkuseg-src \
+    && python -m pip download --no-deps --no-binary=:all: \
+        "pkuseg==0.0.25" -d /tmp/pkuseg-src \
+    && tar -xzf /tmp/pkuseg-src/pkuseg-0.0.25.tar.gz -C /tmp/pkuseg-src \
+    && find /tmp/pkuseg-src/pkuseg-0.0.25 -type f \
+        \( -name '*.c' -o -name '*.cpp' -o -name '*.h' \) \
+        -exec sed -i 's/#include "longintrepr.h"/#include "cpython\/longintrepr.h"/g' {} + \
+    && python -m pip install --no-build-isolation /tmp/pkuseg-src/pkuseg-0.0.25 \
+    && python -m pip install -r requirements.txt \
+    && rm -rf /tmp/pkuseg-src
 
 COPY handler.py .
 CMD ["python", "-u", "handler.py"]
-
